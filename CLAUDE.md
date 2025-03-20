@@ -73,7 +73,8 @@ Building an educational analog clock app for 5-year-olds to learn how to tell ti
 - [x] Add better visual feedback during dragging
 - [x] Improve tick sound feedback
 - [x] Add smooth transitions between states
-- [ ] Make any additional adjustments
+- [x] Implement robust dragging mechanism for 5-year-olds
+- [x] Fix issue with mouse grab being released during drag
 
 ## Commands Reference
 

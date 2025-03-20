@@ -1,11 +1,11 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import ClockFace from './ClockFace';
 import ClockNumbers from './ClockNumbers';
 import HourHand from './HourHand';
 import MinuteHand from './MinuteHand';
 import DigitalDisplay from './DigitalDisplay';
 import { calculateTimeFromAngles } from '../utils/angleCalculations';
-import { speakTime, playTickSound } from '../utils/audioUtils';
+import { speakTime } from '../utils/audioUtils';
 
 /**
  * PracticeMode component provides a free-form environment for kids to explore clock hands
@@ -14,17 +14,23 @@ import { speakTime, playTickSound } from '../utils/audioUtils';
  * @returns {JSX.Element} - Rendered component
  */
 const PracticeMode = () => {
-  // State for clock hands angles
-  const [hourAngle, setHourAngle] = useState(0); // 0 degrees is 12 o'clock
+  // State for hand positions (pure angles, not derived from anything)
+  const [hourAngle, setHourAngle] = useState(0);   // 0 degrees is 12 o'clock 
   const [minuteAngle, setMinuteAngle] = useState(0); // 0 degrees is 12 o'clock
   
-  // State for current time (derived from angles)
+  // Current time derived from angles
   const [digitalTime, setDigitalTime] = useState({ hours: 12, minutes: 0 });
   
   // UI state
   const [showDigital, setShowDigital] = useState(true);
   const [showDescription, setShowDescription] = useState(true);
   const [feedback, setFeedback] = useState(null);
+  
+  // Debug state
+  const [debugInfo, setDebugInfo] = useState({
+    lastMinuteChange: null,
+    lastHourChange: null,
+  });
   
   // Update digital time whenever angles change
   useEffect(() => {
@@ -38,54 +44,169 @@ const PracticeMode = () => {
     }
   }, [hourAngle, minuteAngle, feedback]);
   
+  // Convert between hour value (1-12) and angle (0-359)
+  const hourValueToAngle = (hourValue, minuteValue = 0) => {
+    // Ensure hour is in 1-12 range
+    const hour12 = ((hourValue - 1) % 12) + 1;
+    
+    // Convert to angle (30 degrees per hour, plus minute contribution)
+    // Adjust by subtracting 1 since 12 o'clock is 0 degrees
+    return ((hour12 - 1) * 30) + (minuteValue * 0.5);
+  };
+  
+  const angleToHourValue = (angle) => {
+    // Normalize to 0-360
+    const normalizedAngle = ((angle % 360) + 360) % 360;
+    
+    // Convert to 1-12 range
+    const hourValue = Math.floor(normalizedAngle / 30) + 1;
+    return hourValue > 12 ? hourValue - 12 : hourValue;
+  };
+  
+  // Convert between minute value (0-59) and angle (0-359)
+  const minuteValueToAngle = (minuteValue) => {
+    // Ensure minute is in 0-59 range
+    const minute60 = minuteValue % 60;
+    
+    // Convert to angle (6 degrees per minute)
+    return minute60 * 6;
+  };
+  
+  const angleToMinuteValue = (angle) => {
+    // Normalize to 0-360
+    const normalizedAngle = ((angle % 360) + 360) % 360;
+    
+    // Convert to 0-59 range
+    return Math.round(normalizedAngle / 6) % 60;
+  };
+  
   // Handle hour hand dragging
   const handleHourDrag = (newAngle) => {
+    console.log(`Hour drag: ${hourAngle.toFixed(1)} → ${newAngle.toFixed(1)}`);
+    setDebugInfo(prev => ({
+      ...prev,
+      lastHourChange: `${hourAngle.toFixed(1)} → ${newAngle.toFixed(1)}`
+    }));
+    
     setHourAngle(newAngle);
+  };
+  
+  // Enhanced minute hand drag handler with direct approach for processing multiple rotations
+  const handleMinuteDrag = (newAngle, options = {}) => {
+    // Log incoming values for debugging
+    console.log(`Minute drag: ${minuteAngle.toFixed(1)} → ${newAngle.toFixed(1)}, options:`, options);
     
-    // Also update minute hand slightly based on hour position
-    // This creates a more realistic clock behavior
-    const hourFraction = (newAngle % 30) / 30; // 0-1 representing how far between hours
-    const minuteEffect = hourFraction * 30; // Convert to degrees for minute hand
+    // Store the old angle for reference
+    const oldMinuteAngle = minuteAngle;
     
-    // Only update minute angle if it's a result of hour hand movement between hours
-    if (minuteEffect > 0) {
-      setMinuteAngle(Math.round(minuteEffect * 12) % 360);
+    // Update minute hand angle
+    setMinuteAngle(newAngle);
+    
+    // Get current time values (not angles) for more reliable calculations
+    const currentHourValue = angleToHourValue(hourAngle);
+    const newMinuteValue = angleToMinuteValue(newAngle);
+    
+    // Track rotation count and status in debug info
+    setDebugInfo(prev => ({
+      ...prev,
+      lastMinuteChange: `${oldMinuteAngle.toFixed(1)} → ${newAngle.toFixed(1)}`,
+      currentHourValue,
+      newMinuteValue,
+      fullRotation: options.fullRotation
+    }));
+    
+    // Check for full rotations (key part for hour advancement)
+    if (options.fullRotation && options.fullRotation !== 0) {
+      // Calculate new hour value based on current hour and rotation direction
+      let newHourValue = currentHourValue + options.fullRotation;
+      
+      // Adjust for 12-hour wraparound
+      while (newHourValue > 12) newHourValue -= 12;
+      while (newHourValue <= 0) newHourValue += 12;
+      
+      console.log(`Full rotation detected: ${options.fullRotation}, Hour: ${currentHourValue} → ${newHourValue}`);
+      
+      // Calculate the new hour angle that properly includes minute contribution
+      const newHourAngle = hourValueToAngle(newHourValue, newMinuteValue);
+      
+      // Update hour hand position
+      setHourAngle(newHourAngle);
+      
+      // Log prominently for debugging
+      console.log(`🔄 HOUR ADVANCED: ${currentHourValue} → ${newHourValue} (${options.fullRotation} rotations)`);
+    } else {
+      // For regular updates without full rotation, just make sure hour position is consistent with minutes
+      // We maintain the current hour but update the minute contribution to hour angle
+      const newHourAngle = hourValueToAngle(currentHourValue, newMinuteValue);
+      
+      // Only update hour angle if it's different enough to avoid jitter
+      // This helps prevent the hour hand from "jumping" during minute hand dragging
+      const hourAngleDiff = Math.abs(hourAngle - newHourAngle);
+      if (hourAngleDiff > 0.1) {
+        setHourAngle(newHourAngle);
+      }
     }
   };
   
-  // Handle minute hand dragging
-  const handleMinuteDrag = (newAngle) => {
-    setMinuteAngle(newAngle);
+  // Special handler for testing directly - exposes a way to simulate rotations without UI interaction
+  useEffect(() => {
+    // Add a custom event listener for testing hour rotation
+    const handleTestRotation = (event) => {
+      // Handle direct rotation events for testing
+      const { fullRotation } = event.detail;
+      
+      if (fullRotation) {
+        // Calculate new hour value
+        const currentHourValue = angleToHourValue(hourAngle);
+        let newHourValue = currentHourValue + fullRotation;
+        
+        // Adjust for 12-hour wraparound
+        while (newHourValue > 12) newHourValue -= 12;
+        while (newHourValue <= 0) newHourValue += 12;
+        
+        console.log(`Test rotation: ${fullRotation}, Hour: ${currentHourValue} → ${newHourValue}`);
+        
+        // Get current minute value for proper hour positioning
+        const minuteValue = angleToMinuteValue(minuteAngle);
+        
+        // Update hour hand
+        const newHourAngle = hourValueToAngle(newHourValue, minuteValue);
+        setHourAngle(newHourAngle);
+      }
+    };
     
-    // Also update hour hand slightly based on minute position
-    // Hour hand moves 30 degrees per hour, so minute position affects it slightly
-    const minuteFraction = newAngle / 360; // 0-1 representing full circle
-    const hourBase = Math.floor(hourAngle / 30) * 30; // Base angle for the hour
-    const hourEffect = minuteFraction * 30; // How much to add to hour angle
+    // Add test event listeners for direct DOM testing
+    document.addEventListener('test-minute-rotation', handleTestRotation);
     
-    setHourAngle(hourBase + hourEffect);
-  };
+    return () => {
+      document.removeEventListener('test-minute-rotation', handleTestRotation);
+    };
+  }, [hourAngle, minuteAngle]);
   
   // Read the time aloud using speech synthesis
   const readTimeAloud = () => {
     speakTime(digitalTime);
-    
     setFeedback(`That's ${digitalTime.hours}:${digitalTime.minutes.toString().padStart(2, '0')}!`);
   };
   
   // Set a random time
   const setRandomTime = () => {
-    // Generate random hour (0-11) and convert to degrees
-    const randomHour = Math.floor(Math.random() * 12);
-    const newHourAngle = randomHour * 30;
+    // Generate random hour (1-12)
+    const randomHour = Math.floor(Math.random() * 12) + 1;
     
-    // Generate random minute (0-59) and convert to degrees
+    // Generate random minute (0-59)
     // For young learners, round to 5-minute intervals
     const randomMinute = Math.round(Math.floor(Math.random() * 12) * 5);
-    const newMinuteAngle = randomMinute * 6;
     
-    setHourAngle(newHourAngle + (newMinuteAngle / 12)); // Hour hand moves slightly based on minutes
+    // Convert to angles
+    const newHourAngle = hourValueToAngle(randomHour, randomMinute);
+    const newMinuteAngle = minuteValueToAngle(randomMinute);
+    
+    // Update the angles directly
+    setHourAngle(newHourAngle);
     setMinuteAngle(newMinuteAngle);
+    
+    console.log(`Set random time: ${randomHour}:${randomMinute.toString().padStart(2, '0')} (hourAngle: ${newHourAngle.toFixed(1)}, minuteAngle: ${newMinuteAngle.toFixed(1)})`);
     
     // Give feedback after a small delay to allow state to update
     setTimeout(() => {

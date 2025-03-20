@@ -1,0 +1,10 @@
+.App {
+  text-align: center;
+  height: 100vh;
+  font-family: 'Comic Sans MS', 'Chalkboard SE', 'Open Sans', system-ui, sans-serif;
+}
+
+/* Audio element should be hidden */
+audio {
+  display: none;
+}

@@ -30,14 +30,23 @@ export const calculateMinuteAngle = (minutes) => {
  * @returns {Object} - Object with hours and minutes
  */
 export const calculateTimeFromAngles = (hourAngle, minuteAngle) => {
+  // Normalize angles to 0-360 range
+  const normalizeAngle = (angle) => {
+    // Ensure positive angle
+    let normalized = angle % 360;
+    if (normalized < 0) normalized += 360;
+    return normalized;
+  };
+  
+  const normalizedMinuteAngle = normalizeAngle(minuteAngle);
+  const normalizedHourAngle = normalizeAngle(hourAngle);
+  
   // Calculate minutes from minute angle
   // 6 degrees per minute (360 / 60)
-  const minutes = Math.round(minuteAngle / 6) % 60;
+  const minutes = Math.round(normalizedMinuteAngle / 6) % 60;
   
   // Calculate hours from hour angle
   // 30 degrees per hour (360 / 12)
-  // Normalize hourAngle to 0-360 range
-  const normalizedHourAngle = hourAngle % 360;
   let hours = Math.floor(normalizedHourAngle / 30);
   
   // Adjust hours based on minutes

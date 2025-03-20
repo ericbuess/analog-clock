@@ -90,8 +90,13 @@ const MinuteHand = ({
     
     // Calculate raw and snapped angles
     const rawAngle = startRotationRef.current + deltaAngle;
+    
+    // Normalize angle to 0-360 range
+    let normalizedRawAngle = rawAngle % 360;
+    if (normalizedRawAngle < 0) normalizedRawAngle += 360;
+    
     const snapDegrees = snapInterval * 6;
-    const snappedAngle = Math.round(rawAngle / snapDegrees) * snapDegrees;
+    const snappedAngle = Math.round(normalizedRawAngle / snapDegrees) * snapDegrees;
     
     // Update display angle immediately for smooth visual feedback
     setDisplayAngle(snappedAngle);
@@ -161,8 +166,13 @@ const MinuteHand = ({
     
     // Calculate raw and snapped angles
     const rawAngle = startRotationRef.current + deltaAngle;
+    
+    // Normalize angle to 0-360 range
+    let normalizedRawAngle = rawAngle % 360;
+    if (normalizedRawAngle < 0) normalizedRawAngle += 360;
+    
     const snapDegrees = snapInterval * 6;
-    const snappedAngle = Math.round(rawAngle / snapDegrees) * snapDegrees;
+    const snappedAngle = Math.round(normalizedRawAngle / snapDegrees) * snapDegrees;
     
     // Update display angle immediately for smooth visual feedback
     setDisplayAngle(snappedAngle);
@@ -218,8 +228,8 @@ const MinuteHand = ({
       ref={handleRef}
       data-testid="minute-hand"
       className={`minute-hand absolute bg-black rounded-full ${
-        isDraggable && !disabled ? (visuallyDragging ? 'cursor-grabbing' : 'cursor-grab hover:cursor-grab') : ''
-      } ${disabled ? 'opacity-50' : 'opacity-100'}`}
+        disabled ? 'opacity-50' : 'opacity-100'
+      }`}
       style={{
         width: '4px',
         height: '90px',
@@ -228,7 +238,8 @@ const MinuteHand = ({
         transformOrigin: 'bottom center',
         transform: `rotate(${displayAngle}deg)`,
         zIndex: 10,
-        transition: visuallyDragging ? 'none' : 'transform 0.1s ease-out'
+        transition: visuallyDragging ? 'none' : 'transform 0.1s ease-out',
+        cursor: isDraggable && !disabled ? (visuallyDragging ? 'grabbing' : 'grab') : 'default'
       }}
       onMouseDown={handleMouseDown}
       onTouchStart={handleTouchStart}

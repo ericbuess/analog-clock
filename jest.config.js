@@ -1,7 +1,9 @@
 export default {
   testEnvironment: 'jsdom',
-  transform: {},
-  extensionsToTreatAsEsm: ['.jsx', '.js'],
+  transform: {
+    '^.+\\.(js|jsx)$': 'babel-jest',
+  },
+  extensionsToTreatAsEsm: ['.jsx'],
   moduleNameMapper: {
     '^.+\\.svg$': '<rootDir>/tests/mocks/svgMock.js',
     '^.+\\.(css|less|scss)$': 'identity-obj-proxy'

@@ -62,9 +62,10 @@ Building an educational analog clock app for 5-year-olds to learn how to tell ti
 ### Phase 8: Finalization
 - [x] Create detailed README.md
 - [x] Commit changes to GitHub
-- [ ] Install dependencies
-- [ ] Run and test the application
-- [ ] Add sound files to public/sounds directory
+- [x] Install dependencies
+- [x] Run unit tests
+- [x] Start development server
+- [x] Add sound files directory
 - [ ] Make any necessary adjustments
 
 ## Commands Reference

@@ -59,13 +59,13 @@ Building an educational analog clock app for 5-year-olds to learn how to tell ti
 - [x] Set up Puppeteer tests
 - [x] Create MCP commands for testing
 
-### Tasks Still To Do
+### Phase 8: Finalization
+- [x] Create detailed README.md
+- [x] Commit changes to GitHub
 - [ ] Install dependencies
 - [ ] Run and test the application
-- [ ] Make any necessary adjustments
 - [ ] Add sound files to public/sounds directory
-- [ ] Commit changes to GitHub
-- [ ] Create detailed README.md
+- [ ] Make any necessary adjustments
 
 ## Commands Reference
 
@@ -88,6 +88,21 @@ npm test
 
 # Run UI tests
 npm run test:ui
+```
+
+### Git Commands
+```bash
+# Check status
+git status
+
+# Add changes
+git add .
+
+# Commit changes
+git commit -m "Descriptive message"
+
+# Push changes
+git push origin dev
 ```
 
 ### Tools & Versions

@@ -1,4 +1,4 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import { calculateMouseAngle, calculateTouchAngle } from '../utils/angleCalculations';
 import { playTickSound } from '../utils/audioUtils';
 
@@ -21,6 +21,19 @@ const MinuteHand = ({
   snapInterval = 5 // Default to 5-minute intervals
 }) => {
   const handleRef = useRef(null);
+  const [displayAngle, setDisplayAngle] = useState(angle);
+  const [isDragging, setIsDragging] = useState(false);
+  const lastReportedAngle = useRef(angle);
+  const lastTickAngle = useRef(Math.floor(angle / (snapInterval * 6)) * (snapInterval * 6));
+  
+  // Update display angle when the external angle prop changes (not during drag)
+  useEffect(() => {
+    if (!isDragging) {
+      setDisplayAngle(angle);
+      lastReportedAngle.current = angle;
+      lastTickAngle.current = Math.floor(angle / (snapInterval * 6)) * (snapInterval * 6);
+    }
+  }, [angle, isDragging, snapInterval]);
   
   // Handle drag functionality
   useEffect(() => {
@@ -36,6 +49,8 @@ const MinuteHand = ({
       const centerX = rect.left + rect.width / 2;
       const centerY = rect.top + rect.height / 2;
       startAngle = Math.atan2(e.clientY - centerY, e.clientX - centerX) * 180 / Math.PI;
+      startRotation = angle;
+      setIsDragging(true);
       
       document.addEventListener('mousemove', handleMouseMove);
       document.addEventListener('mouseup', handleMouseUp);
@@ -49,23 +64,38 @@ const MinuteHand = ({
       const currentAngle = Math.atan2(e.clientY - centerY, e.clientX - centerX) * 180 / Math.PI;
       const deltaAngle = currentAngle - startAngle;
       
+      // Calculate the raw angle for smooth movement
+      const rawAngle = startRotation + deltaAngle;
+      
       // Calculate snap angle based on the snapInterval (in minutes)
       // There are 6 degrees per minute (360 / 60)
       const snapDegrees = snapInterval * 6;
-      const snappedAngle = Math.round((startRotation + deltaAngle) / snapDegrees) * snapDegrees;
+      const snappedAngle = Math.round(rawAngle / snapDegrees) * snapDegrees;
       
-      if (snappedAngle !== angle) {
+      // Always update the display angle for smooth visual movement
+      setDisplayAngle(snappedAngle);
+      
+      // Only report angle changes when crossing snap thresholds
+      if (snappedAngle !== lastReportedAngle.current) {
         onDrag(snappedAngle);
-        playTickSound('minute');
+        lastReportedAngle.current = snappedAngle;
+        
+        // Play tick sound only when crossing minute markers
+        const newTickAngle = Math.floor(snappedAngle / snapDegrees) * snapDegrees;
+        if (newTickAngle !== lastTickAngle.current) {
+          playTickSound('minute');
+          lastTickAngle.current = newTickAngle;
+        }
       }
     };
     
     const handleMouseUp = () => {
+      setIsDragging(false);
       document.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('mouseup', handleMouseUp);
     };
     
-    // Touch events for mobile devices
+    // Touch events for mobile devices with similar improvements
     const handleTouchStart = (e) => {
       e.preventDefault();
       const touch = e.touches[0];
@@ -73,6 +103,8 @@ const MinuteHand = ({
       const centerX = rect.left + rect.width / 2;
       const centerY = rect.top + rect.height / 2;
       startAngle = Math.atan2(touch.clientY - centerY, touch.clientX - centerX) * 180 / Math.PI;
+      startRotation = angle;
+      setIsDragging(true);
       
       document.addEventListener('touchmove', handleTouchMove, { passive: false });
       document.addEventListener('touchend', handleTouchEnd);
@@ -88,17 +120,32 @@ const MinuteHand = ({
       const currentAngle = Math.atan2(touch.clientY - centerY, touch.clientX - centerX) * 180 / Math.PI;
       const deltaAngle = currentAngle - startAngle;
       
+      // Calculate the raw angle for smooth movement
+      const rawAngle = startRotation + deltaAngle;
+      
       // Calculate snap angle based on the snapInterval (in minutes)
       const snapDegrees = snapInterval * 6;
-      const snappedAngle = Math.round((startRotation + deltaAngle) / snapDegrees) * snapDegrees;
+      const snappedAngle = Math.round(rawAngle / snapDegrees) * snapDegrees;
       
-      if (snappedAngle !== angle) {
+      // Always update the display angle for smooth visual movement
+      setDisplayAngle(snappedAngle);
+      
+      // Only report angle changes when crossing snap thresholds
+      if (snappedAngle !== lastReportedAngle.current) {
         onDrag(snappedAngle);
-        playTickSound('minute');
+        lastReportedAngle.current = snappedAngle;
+        
+        // Play tick sound only when crossing minute markers
+        const newTickAngle = Math.floor(snappedAngle / snapDegrees) * snapDegrees;
+        if (newTickAngle !== lastTickAngle.current) {
+          playTickSound('minute');
+          lastTickAngle.current = newTickAngle;
+        }
       }
     };
     
     const handleTouchEnd = () => {
+      setIsDragging(false);
       document.removeEventListener('touchmove', handleTouchMove);
       document.removeEventListener('touchend', handleTouchEnd);
     };
@@ -116,8 +163,8 @@ const MinuteHand = ({
     };
   }, [angle, isDraggable, onDrag, disabled, snapInterval]);
 
-  // Calculate the minute based on the angle (0-354 degrees maps to 0-59 minutes)
-  const minuteValue = Math.round(angle / 6) % 60;
+  // Calculate the minute based on the display angle (0-354 degrees maps to 0-59 minutes)
+  const minuteValue = Math.round(displayAngle / 6) % 60;
 
   return (
     <div 
@@ -132,8 +179,9 @@ const MinuteHand = ({
         left: 'calc(50% - 2px)',
         bottom: '50%',
         transformOrigin: 'bottom center',
-        transform: `rotate(${angle}deg)`,
-        zIndex: 10
+        transform: `rotate(${displayAngle}deg)`,
+        zIndex: 10,
+        transition: isDragging ? 'none' : 'transform 0.1s ease-out'
       }}
       aria-label={`Minute hand at ${minuteValue} minutes`}
       tabIndex={isDraggable && !disabled ? 0 : -1}

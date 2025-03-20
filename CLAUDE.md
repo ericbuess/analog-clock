@@ -66,7 +66,14 @@ Building an educational analog clock app for 5-year-olds to learn how to tell ti
 - [x] Run unit tests
 - [x] Start development server
 - [x] Add sound files directory
-- [ ] Make any necessary adjustments
+- [x] Improve drag behavior for clock hands
+
+### Phase 9: Usability Improvements
+- [x] Fix continuous drag behavior for clock hands
+- [x] Add better visual feedback during dragging
+- [x] Improve tick sound feedback
+- [x] Add smooth transitions between states
+- [ ] Make any additional adjustments
 
 ## Commands Reference
 

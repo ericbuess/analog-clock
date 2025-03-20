@@ -1,4 +1,4 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import { calculateMouseAngle, calculateTouchAngle } from '../utils/angleCalculations';
 import { playTickSound } from '../utils/audioUtils';
 
@@ -14,6 +14,19 @@ import { playTickSound } from '../utils/audioUtils';
  */
 const HourHand = ({ angle, isDraggable, onDrag, disabled = false }) => {
   const handleRef = useRef(null);
+  const [displayAngle, setDisplayAngle] = useState(angle);
+  const [isDragging, setIsDragging] = useState(false);
+  const lastReportedAngle = useRef(angle);
+  const lastTickAngle = useRef(Math.floor(angle / 30) * 30);
+  
+  // Update display angle when the external angle prop changes (not during drag)
+  useEffect(() => {
+    if (!isDragging) {
+      setDisplayAngle(angle);
+      lastReportedAngle.current = angle;
+      lastTickAngle.current = Math.floor(angle / 30) * 30;
+    }
+  }, [angle, isDragging]);
   
   // Handle drag functionality
   useEffect(() => {
@@ -29,6 +42,8 @@ const HourHand = ({ angle, isDraggable, onDrag, disabled = false }) => {
       const centerX = rect.left + rect.width / 2;
       const centerY = rect.top + rect.height / 2;
       startAngle = Math.atan2(e.clientY - centerY, e.clientX - centerX) * 180 / Math.PI;
+      startRotation = angle;
+      setIsDragging(true);
       
       document.addEventListener('mousemove', handleMouseMove);
       document.addEventListener('mouseup', handleMouseUp);
@@ -42,21 +57,36 @@ const HourHand = ({ angle, isDraggable, onDrag, disabled = false }) => {
       const currentAngle = Math.atan2(e.clientY - centerY, e.clientX - centerX) * 180 / Math.PI;
       const deltaAngle = currentAngle - startAngle;
       
-      // Snap to hour positions (every 30 degrees)
-      const snappedAngle = Math.round((startRotation + deltaAngle) / 30) * 30;
+      // Calculate the raw angle for smooth movement
+      const rawAngle = startRotation + deltaAngle;
       
-      if (snappedAngle !== angle) {
+      // Calculate the snapped angle for reporting
+      const snappedAngle = Math.round(rawAngle / 30) * 30;
+      
+      // Always update the display angle for smooth visual movement
+      setDisplayAngle(snappedAngle);
+      
+      // Only report angle changes when crossing snap thresholds
+      if (snappedAngle !== lastReportedAngle.current) {
         onDrag(snappedAngle);
-        playTickSound('hour');
+        lastReportedAngle.current = snappedAngle;
+        
+        // Play tick sound only when crossing hour markers
+        const newTickAngle = Math.floor(snappedAngle / 30) * 30;
+        if (newTickAngle !== lastTickAngle.current) {
+          playTickSound('hour');
+          lastTickAngle.current = newTickAngle;
+        }
       }
     };
     
     const handleMouseUp = () => {
+      setIsDragging(false);
       document.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('mouseup', handleMouseUp);
     };
     
-    // Touch events for mobile devices
+    // Touch events for mobile devices with similar improvements
     const handleTouchStart = (e) => {
       e.preventDefault();
       const touch = e.touches[0];
@@ -64,6 +94,8 @@ const HourHand = ({ angle, isDraggable, onDrag, disabled = false }) => {
       const centerX = rect.left + rect.width / 2;
       const centerY = rect.top + rect.height / 2;
       startAngle = Math.atan2(touch.clientY - centerY, touch.clientX - centerX) * 180 / Math.PI;
+      startRotation = angle;
+      setIsDragging(true);
       
       document.addEventListener('touchmove', handleTouchMove, { passive: false });
       document.addEventListener('touchend', handleTouchEnd);
@@ -79,16 +111,31 @@ const HourHand = ({ angle, isDraggable, onDrag, disabled = false }) => {
       const currentAngle = Math.atan2(touch.clientY - centerY, touch.clientX - centerX) * 180 / Math.PI;
       const deltaAngle = currentAngle - startAngle;
       
-      // Snap to hour positions (every 30 degrees)
-      const snappedAngle = Math.round((startRotation + deltaAngle) / 30) * 30;
+      // Calculate the raw angle for smooth movement
+      const rawAngle = startRotation + deltaAngle;
       
-      if (snappedAngle !== angle) {
+      // Calculate the snapped angle for reporting
+      const snappedAngle = Math.round(rawAngle / 30) * 30;
+      
+      // Always update the display angle for smooth visual movement
+      setDisplayAngle(snappedAngle);
+      
+      // Only report angle changes when crossing snap thresholds
+      if (snappedAngle !== lastReportedAngle.current) {
         onDrag(snappedAngle);
-        playTickSound('hour');
+        lastReportedAngle.current = snappedAngle;
+        
+        // Play tick sound only when crossing hour markers
+        const newTickAngle = Math.floor(snappedAngle / 30) * 30;
+        if (newTickAngle !== lastTickAngle.current) {
+          playTickSound('hour');
+          lastTickAngle.current = newTickAngle;
+        }
       }
     };
     
     const handleTouchEnd = () => {
+      setIsDragging(false);
       document.removeEventListener('touchmove', handleTouchMove);
       document.removeEventListener('touchend', handleTouchEnd);
     };
@@ -106,8 +153,8 @@ const HourHand = ({ angle, isDraggable, onDrag, disabled = false }) => {
     };
   }, [angle, isDraggable, onDrag, disabled]);
 
-  // Calculate the hour based on the angle (0-330 degrees maps to 12, 1, 2, ..., 11)
-  const hourValue = Math.round(angle / 30) % 12 || 12;
+  // Calculate the hour based on the display angle (0-330 degrees maps to 12, 1, 2, ..., 11)
+  const hourValue = Math.round(displayAngle / 30) % 12 || 12;
 
   return (
     <div 
@@ -122,8 +169,9 @@ const HourHand = ({ angle, isDraggable, onDrag, disabled = false }) => {
         left: 'calc(50% - 4px)',
         bottom: '50%',
         transformOrigin: 'bottom center',
-        transform: `rotate(${angle}deg)`,
-        zIndex: 20
+        transform: `rotate(${displayAngle}deg)`,
+        zIndex: 20,
+        transition: isDragging ? 'none' : 'transform 0.1s ease-out'
       }}
       aria-label={`Hour hand at ${hourValue} o'clock`}
       tabIndex={isDraggable && !disabled ? 0 : -1}

@@ -1,6 +1,53 @@
 /**
  * Difficulty level configurations for the play mode
  */
+
+/**
+ * Generates random times based on difficulty level
+ * @param {string} difficulty - Difficulty level ('easy', 'medium', 'hard', 'expert')
+ * @param {number} count - Number of times to generate
+ * @returns {Array} Array of time objects { hours, minutes }
+ */
+export const generateTimesByDifficulty = (difficulty, count = 5) => {
+  const level = DIFFICULTY_LEVELS[difficulty];
+  const times = [];
+  
+  for (let i = 0; i < count; i++) {
+    // Generate random hour (1-12)
+    const hour = Math.floor(Math.random() * 12) + 1;
+    
+    // Generate random minute based on difficulty
+    let minute;
+    if (level.minuteOptions) {
+      // Pick from allowed minute values for this difficulty
+      minute = level.minuteOptions[Math.floor(Math.random() * level.minuteOptions.length)];
+    } else {
+      // Expert level - any minute value (multiple of minuteSnap)
+      const minuteSnap = level.clockSnapInterval || 1;
+      const possibleMinutes = Math.floor(60 / minuteSnap);
+      minute = Math.floor(Math.random() * possibleMinutes) * minuteSnap;
+    }
+    
+    times.push({ hours: hour, minutes: minute });
+  }
+  
+  return times;
+};
+
+/**
+ * Checks if two time objects are equal
+ * @param {Object} time1 - First time object { hours, minutes }
+ * @param {Object} time2 - Second time object { hours, minutes }
+ * @returns {boolean} - True if times are equal
+ */
+export const areTimesEqual = (time1, time2) => {
+  // Convert hours to 12-hour format
+  const hours1 = time1.hours === 0 ? 12 : time1.hours;
+  const hours2 = time2.hours === 0 ? 12 : time2.hours;
+  
+  return hours1 === hours2 && time1.minutes === time2.minutes;
+};
+
 export const DIFFICULTY_LEVELS = {
   easy: {
     name: 'Easy',

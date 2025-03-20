@@ -77,6 +77,37 @@ Building an educational analog clock app for 5-year-olds to learn how to tell ti
 - [x] Fix issue with mouse grab being released during drag
 - [x] Fix cursor flickering between pointer and grab hand
 - [x] Fix negative time values with angle normalization
+- [x] Fix hour hand jumping back when minute hand completes a full circle
+  - Enhanced rotation detection in MinuteHand component
+    - Added robust boundary crossing detection with direction tracking
+    - Implemented accumulative angle tracking during drag sessions
+    - Added rotation counting for multiple full rotations in a single drag
+  - Improved parent component handling of rotation events
+    - Updated PracticeMode component to process rotation events correctly
+    - Fixed time value calculations for more reliable behavior
+    - Implemented proper time synchronization between hour and minute hands
+  - Fixed edge case with hour 1 reverting to 12 when minute hand at 5
+    - Ensured consistent 1-12 hour range handling throughout code
+    - Updated angleCalculations.js to maintain hour values correctly
+  - Comprehensive testing with automated Puppeteer tests
+    - Created final-test.js that verifies all three critical cases:
+      1. Hour advances correctly when minute hand completes full rotation
+      2. Hour 1 doesn't change to 12 at the 1:05 position
+      3. Hour 12 correctly wraps to hour 1 after a full rotation
+  - Fixed multiple rotation support
+    - Enhanced MinuteHand component to track accumulated rotations during a single drag
+    - Implemented robust boundary crossing detection with improved angle normalization
+    - Added immediate rotation reporting during drag operations for real-time updates
+    - Implemented alternate rotation detection based on total accumulated angle
+    - Added final rotation check on mouse/touch up to catch any missed rotations
+    - Reduced angle threshold from 350° to 330° for more sensitive rotation detection
+    - Added direct testing mechanism via custom events for reliable verification
+    - Created comprehensive test suite with multiple verification approaches:
+      * multiple-rotation-test.js for UI interaction testing
+      * debug-continuous-rotation.js for detailed state inspection
+      * direct-test.js for event-based rotation verification
+      * manual-drag-test.js for visual verification with screenshots
+    - Implemented dedicated logging for better debugging during rotation events
 
 ## Commands Reference
 

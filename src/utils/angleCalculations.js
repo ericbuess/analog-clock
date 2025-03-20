@@ -1,16 +1,22 @@
 /**
  * Calculates the hour hand angle based on hours and minutes
- * @param {number} hours - Hours (0-23)
+ * @param {number} hours - Hours (1-12 or 0-23)
  * @param {number} minutes - Minutes (0-59)
  * @returns {number} - Angle in degrees
  */
 export const calculateHourAngle = (hours, minutes) => {
-  // Convert 24-hour format to 12-hour format
-  const hour12 = hours % 12;
+  // Convert any format to 1-12 hour format
+  let hour12;
+  if (hours === 0 || hours === 24) {
+    hour12 = 12; // 0:00 or 24:00 becomes 12 o'clock
+  } else {
+    hour12 = ((hours - 1) % 12) + 1; // Ensures we get 1-12 range
+  }
   
   // Each hour represents 30 degrees (360 / 12)
+  // Adjust for 12 o'clock being at 0 degrees by subtracting 1
   // Each minute contributes 0.5 degrees to the hour hand (30 / 60)
-  return (hour12 * 30) + (minutes * 0.5);
+  return ((hour12 - 1) * 30) + (minutes * 0.5);
 };
 
 /**
@@ -45,19 +51,30 @@ export const calculateTimeFromAngles = (hourAngle, minuteAngle) => {
   // 6 degrees per minute (360 / 60)
   const minutes = Math.round(normalizedMinuteAngle / 6) % 60;
   
-  // Calculate hours from hour angle
+  // Calculate hours from hour angle (1-12 range)
   // 30 degrees per hour (360 / 12)
-  let hours = Math.floor(normalizedHourAngle / 30);
+  // Add 1 because 0 degrees corresponds to 12 o'clock
+  let hours = Math.floor(normalizedHourAngle / 30) + 1;
   
-  // Adjust hours based on minutes
-  // Each minute contributes 0.5 degrees to the hour hand
-  // If the hour hand is close to the next hour, round up
+  // Adjust for 12-hour wraparound
+  if (hours > 12) hours = hours - 12;
+  
+  // Adjust for minute effect - if we're very close to the next hour
+  // due to minute hand position, we might need to bump the hour
   const minuteEffect = minutes * 0.5;
   const hourWithMinuteEffect = normalizedHourAngle - minuteEffect;
-  hours = Math.round(hourWithMinuteEffect / 30) % 12;
+  const adjustedHours = Math.round(hourWithMinuteEffect / 30) + 1;
   
-  // Convert 0 to 12 for display purposes
-  if (hours === 0) hours = 12;
+  // Only apply the hour adjustment if it's significant
+  // This avoids "jumping" behavior with small minute changes
+  if (Math.abs(hours - adjustedHours) === 1 || 
+      (hours === 12 && adjustedHours === 1) || 
+      (hours === 1 && adjustedHours === 12)) {
+    hours = adjustedHours > 12 ? adjustedHours - 12 : adjustedHours;
+  }
+  
+  // Double-check we're in valid 1-12 range
+  hours = ((hours - 1) % 12) + 1;
   
   return { hours, minutes };
 };

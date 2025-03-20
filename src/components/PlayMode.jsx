@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { motion } from 'framer-motion';
 import ClockFace from './ClockFace';
 import ClockNumbers from './ClockNumbers';
 import HourHand from './HourHand';
@@ -7,13 +6,11 @@ import MinuteHand from './MinuteHand';
 import DigitalDisplay from './DigitalDisplay';
 import SuccessAnimation from './SuccessAnimation';
 import { calculateTimeFromAngles, calculateHourAngle, calculateMinuteAngle } from '../utils/angleCalculations';
-import { formatTime, generateTimesByDifficulty, areTimesEqual } from '../utils/timeUtils';
-import { playSuccessSound, playTryAgainSound, speakTime } from '../utils/audioUtils';
-import { DIFFICULTY_LEVELS, calculateScore, getScoreMessage } from '../utils/difficultyLevels';
+import { speakTime, playSuccessSound } from '../utils/audioUtils';
+import { generateTimesByDifficulty, DIFFICULTY_LEVELS, areTimesEqual } from '../utils/difficultyLevels';
 
 /**
- * PlayMode component provides a game environment where kids can practice setting 
- * the clock to match a given time
+ * PlayMode component provides challenges for kids to set the clock to a specific time
  * 
  * @returns {JSX.Element} - Rendered component
  */
@@ -28,7 +25,7 @@ const PlayMode = () => {
   const [timeRemaining, setTimeRemaining] = useState(null);
   const timerRef = useRef(null);
   
-  // Clock state
+  // Clock state - just angles, no derived values
   const [hourAngle, setHourAngle] = useState(0);
   const [minuteAngle, setMinuteAngle] = useState(0);
   const [currentTime, setCurrentTime] = useState({ hours: 12, minutes: 0 });
@@ -38,6 +35,12 @@ const PlayMode = () => {
   const [feedback, setFeedback] = useState(null);
   const [showHint, setShowHint] = useState(false);
   const [gameOver, setGameOver] = useState(false);
+  
+  // Debug state
+  const [debugInfo, setDebugInfo] = useState({
+    lastMinuteChange: null,
+    lastHourChange: null,
+  });
   
   // Setup initial challenges when difficulty changes
   useEffect(() => {
@@ -91,19 +94,96 @@ const PlayMode = () => {
     setCurrentTime(time);
   }, [hourAngle, minuteAngle]);
   
-  // Handle dragging the hour hand
+  // Convert between hour value (1-12) and angle (0-359)
+  const hourValueToAngle = (hourValue, minuteValue = 0) => {
+    // Ensure hour is in 1-12 range
+    const hour12 = ((hourValue - 1) % 12) + 1;
+    
+    // Convert to angle (30 degrees per hour, plus minute contribution)
+    // Adjust by subtracting 1 since 12 o'clock is 0 degrees
+    return ((hour12 - 1) * 30) + (minuteValue * 0.5);
+  };
+  
+  const angleToHourValue = (angle) => {
+    // Normalize to 0-360
+    const normalizedAngle = ((angle % 360) + 360) % 360;
+    
+    // Convert to 1-12 range
+    const hourValue = Math.floor(normalizedAngle / 30) + 1;
+    return hourValue > 12 ? hourValue - 12 : hourValue;
+  };
+  
+  // Convert between minute value (0-59) and angle (0-359)
+  const minuteValueToAngle = (minuteValue) => {
+    // Ensure minute is in 0-59 range
+    const minute60 = minuteValue % 60;
+    
+    // Convert to angle (6 degrees per minute)
+    return minute60 * 6;
+  };
+  
+  const angleToMinuteValue = (angle) => {
+    // Normalize to 0-360
+    const normalizedAngle = ((angle % 360) + 360) % 360;
+    
+    // Convert to 0-59 range
+    return Math.round(normalizedAngle / 6) % 60;
+  };
+  
+  // Handle hour hand dragging
   const handleHourDrag = (newAngle) => {
+    console.log(`Hour drag: ${hourAngle.toFixed(1)} → ${newAngle.toFixed(1)}`);
+    setDebugInfo(prev => ({
+      ...prev,
+      lastHourChange: `${hourAngle.toFixed(1)} → ${newAngle.toFixed(1)}`
+    }));
+    
     setHourAngle(newAngle);
   };
   
-  // Handle dragging the minute hand
-  const handleMinuteDrag = (newAngle) => {
+  // Handle minute hand dragging with robust rotation detection
+  const handleMinuteDrag = (newAngle, options = {}) => {
+    // Log incoming values for debugging
+    console.log(`Minute drag: ${minuteAngle.toFixed(1)} → ${newAngle.toFixed(1)}, options:`, options);
+    
+    // Update minute hand angle
     setMinuteAngle(newAngle);
     
-    // Update hour hand slightly based on minute position
-    const minuteFraction = newAngle / 360;
-    const hourBase = Math.floor(hourAngle / 30) * 30;
-    setHourAngle(hourBase + (minuteFraction * 30));
+    // Get current time values (not angles) for more reliable calculations
+    const currentHourValue = angleToHourValue(hourAngle);
+    const newMinuteValue = angleToMinuteValue(newAngle);
+    
+    setDebugInfo(prev => ({
+      ...prev,
+      lastMinuteChange: `${minuteAngle.toFixed(1)} → ${newAngle.toFixed(1)}`,
+      currentHourValue,
+      newMinuteValue,
+      fullRotation: options.fullRotation
+    }));
+    
+    // Check for full rotations (key part for hour advancement)
+    if (options.fullRotation && options.fullRotation !== 0) {
+      // Calculate new hour value based on current hour and rotation direction
+      let newHourValue = currentHourValue + options.fullRotation;
+      
+      // Adjust for 12-hour wraparound
+      while (newHourValue > 12) newHourValue -= 12;
+      while (newHourValue <= 0) newHourValue += 12;
+      
+      console.log(`Full rotation detected: ${options.fullRotation}, Hour: ${currentHourValue} → ${newHourValue}`);
+      
+      // Calculate the new hour angle that properly includes minute contribution
+      const newHourAngle = hourValueToAngle(newHourValue, newMinuteValue);
+      
+      // Update hour hand position
+      setHourAngle(newHourAngle);
+    } else {
+      // For regular updates without full rotation, just make sure hour position is consistent with minutes
+      // We always update both to maintain their correct relationship
+      const newHourAngle = hourValueToAngle(currentHourValue, newMinuteValue);
+      
+      setHourAngle(newHourAngle);
+    }
   };
   
   // Check if the current time matches the target time
@@ -155,9 +235,6 @@ const PlayMode = () => {
     // Stop timer
     if (timerRef.current) clearTimeout(timerRef.current);
     
-    // Play try again sound
-    playTryAgainSound();
-    
     // Reset streak
     setStreak(0);
     
@@ -208,8 +285,8 @@ const PlayMode = () => {
     const prevMinuteAngle = minuteAngle;
     
     // Calculate correct angles
-    const correctHourAngle = calculateHourAngle(targetTime.hours, targetTime.minutes);
-    const correctMinuteAngle = calculateMinuteAngle(targetTime.minutes);
+    const correctHourAngle = hourValueToAngle(targetTime.hours, targetTime.minutes);
+    const correctMinuteAngle = minuteValueToAngle(targetTime.minutes);
     
     // Set hands to correct position
     setHourAngle(correctHourAngle);
@@ -248,202 +325,135 @@ const PlayMode = () => {
     }
   };
   
-  // Get current difficulty settings
-  const difficultySettings = DIFFICULTY_LEVELS[difficulty];
-  
   return (
     <div className="play-mode" data-testid="play-mode">
-      <h2 className="text-2xl mb-4 text-center">Play Mode</h2>
+      <h2 className="text-2xl mb-2 text-center">Play Mode</h2>
       
-      {/* Difficulty selection */}
-      {!gameOver && (
-        <div className="difficulty-selector mb-6 flex flex-wrap justify-center gap-2">
-          {Object.entries(DIFFICULTY_LEVELS).map(([key, value]) => (
-            <button
-              key={key}
-              data-testid={`${key}-button`}
-              className={`px-3 py-1 rounded-lg text-sm ${
-                difficulty === key
-                  ? 'bg-green-500 text-white font-bold'
-                  : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-              } transition-colors focus:outline-none focus:ring-2 focus:ring-green-300`}
-              onClick={() => setDifficulty(key)}
-              disabled={gameOver}
-            >
-              {value.name}
-            </button>
-          ))}
-        </div>
-      )}
-      
-      {/* Game progress */}
-      {!gameOver && (
-        <div className="game-progress mb-4 flex justify-between items-center">
-          <div className="challenge-counter">
-            Challenge: {currentChallenge + 1}/{challenges.length}
-          </div>
-          
-          <div className="score font-bold">
-            Score: {score}
-          </div>
-          
-          {streak > 1 && (
-            <div className="streak text-orange-500 font-bold">
-              🔥 {streak}
+      {!gameOver ? (
+        <>
+          <div className="game-info flex justify-between items-center mb-4 px-4">
+            <div className="difficulty">
+              <label htmlFor="difficulty-select" className="mr-2">Difficulty:</label>
+              <select 
+                id="difficulty-select"
+                value={difficulty}
+                onChange={(e) => setDifficulty(e.target.value)}
+                className="bg-white border border-gray-300 rounded px-2 py-1"
+                disabled={currentChallenge > 0} // Can only change difficulty at the start
+              >
+                <option value="easy">Easy</option>
+                <option value="medium">Medium</option>
+                <option value="hard">Hard</option>
+                <option value="expert">Expert</option>
+              </select>
             </div>
-          )}
-        </div>
-      )}
-      
-      {/* Timer if applicable */}
-      {timeRemaining !== null && !gameOver && (
-        <div className="timer-bar mb-4">
-          <div className="text-sm mb-1 flex justify-between">
-            <span>Time remaining:</span>
-            <span>{timeRemaining}s</span>
-          </div>
-          <div className="h-2 bg-gray-200 rounded overflow-hidden">
-            <motion.div
-              className="h-full bg-blue-500"
-              initial={{ width: '100%' }}
-              animate={{
-                width: `${(timeRemaining / difficultySettings.timeLimit) * 100}%`
-              }}
-              transition={{ duration: 0.3 }}
-            />
-          </div>
-        </div>
-      )}
-      
-      {/* Target time display */}
-      {!gameOver && (
-        <div className="target-time mb-4 p-2 bg-yellow-100 rounded-lg text-center">
-          <div className="text-sm text-gray-600">Set the clock to:</div>
-          <div className="text-2xl font-bold">{formatTime(targetTime.hours, targetTime.minutes)}</div>
-        </div>
-      )}
-      
-      {/* Clock */}
-      {!gameOver && (
-        <div className="clock-container flex flex-col items-center mb-6">
-          <ClockFace size={300} theme={showHint ? "colorful" : "default"}>
-            <ClockNumbers 
-              size={300} 
-              highlightHour={difficultySettings.showHelpers ? targetTime.hours : null}
-              highlightMinute={difficultySettings.showHelpers ? targetTime.minutes : null}
-              showMinutes={difficultySettings.showHelpers}
-            />
-            <HourHand 
-              angle={hourAngle} 
-              isDraggable={true} 
-              onDrag={handleHourDrag} 
-              disabled={showHint}
-            />
-            <MinuteHand 
-              angle={minuteAngle} 
-              isDraggable={true} 
-              onDrag={handleMinuteDrag}
-              snapInterval={difficultySettings.clockSnapInterval}
-              disabled={showHint}
-            />
             
-            {/* Center dot */}
-            <div 
-              className="absolute w-3 h-3 bg-black rounded-full" 
-              style={{ 
-                left: 'calc(50% - 1.5px)', 
-                top: 'calc(50% - 1.5px)',
-                zIndex: 30
-              }}
-            />
-          </ClockFace>
+            <div className="score font-bold">
+              Score: {score}
+            </div>
+            
+            <div className="streak text-blue-600">
+              Streak: {streak}
+            </div>
+          </div>
           
-          {/* Current time */}
-          {difficultySettings.showDigitalHint && (
+          <div className="challenge text-center mb-4">
+            <p className="text-xl">
+              Set the clock to: <span className="font-bold">{targetTime.hours}:{targetTime.minutes.toString().padStart(2, '0')}</span>
+            </p>
+            {timeRemaining !== null && (
+              <p className={`${timeRemaining < 10 ? 'text-red-500' : ''}`}>
+                Time remaining: {timeRemaining}s
+              </p>
+            )}
+          </div>
+          
+          <div className="clock-container flex flex-col items-center">
+            <ClockFace size={300} theme="colorful">
+              <ClockNumbers 
+                size={300} 
+                highlightHour={showHint ? targetTime.hours : null}
+                highlightMinute={showHint ? targetTime.minutes : null}
+                showMinutes={difficulty !== 'easy'}
+              />
+              <HourHand 
+                angle={hourAngle} 
+                isDraggable={true} 
+                onDrag={handleHourDrag} 
+              />
+              <MinuteHand 
+                angle={minuteAngle} 
+                isDraggable={true} 
+                onDrag={handleMinuteDrag}
+                snapInterval={difficulty === 'easy' ? 5 : 1} // Easier snapping for easy mode
+              />
+              
+              {/* Center dot */}
+              <div 
+                className="absolute w-3 h-3 bg-black rounded-full" 
+                style={{ 
+                  left: 'calc(50% - 1.5px)', 
+                  top: 'calc(50% - 1.5px)',
+                  zIndex: 30
+                }}
+              />
+              
+              {/* Success animation when correct */}
+              {showSuccess && <SuccessAnimation />}
+            </ClockFace>
+            
             <DigitalDisplay 
               hours={currentTime.hours} 
               minutes={currentTime.minutes}
+              showDescription={difficulty === 'easy' || difficulty === 'medium'}
               className="mt-4"
             />
-          )}
-        </div>
-      )}
-      
-      {/* Game controls */}
-      {!gameOver ? (
-        <>
-          {/* Feedback message */}
-          {feedback && (
-            <div className="feedback mb-4 text-center text-xl font-bold" 
-                style={{ color: feedback.includes('Great') ? '#16a34a' : '#ef4444' }}
-                aria-live="polite">
-              {feedback}
+            
+            {feedback && (
+              <div className={`feedback mt-2 text-xl ${showSuccess ? 'text-green-600' : 'text-red-500'} font-bold`} aria-live="polite">
+                {feedback}
+              </div>
+            )}
+            
+            <div className="controls mt-6 flex justify-center gap-3">
+              <button 
+                onClick={checkAnswer}
+                className="bg-green-500 text-white px-6 py-2 rounded-lg hover:bg-green-600 focus:outline-none focus:ring-2 focus:ring-green-300"
+                data-testid="check-answer-button"
+              >
+                Check Answer
+              </button>
+              
+              <button 
+                onClick={showTimeHint}
+                className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-300"
+                data-testid="hint-button"
+              >
+                Hint
+              </button>
             </div>
-          )}
+          </div>
           
-          <div className="game-controls flex flex-wrap justify-center gap-3">
-            <button 
-              onClick={checkAnswer}
-              className="bg-green-500 text-white px-5 py-2 rounded-lg hover:bg-green-600 focus:outline-none focus:ring-2 focus:ring-green-300 font-bold"
-              data-testid="check-answer-button"
-            >
-              Check Answer
-            </button>
-            
-            <button 
-              onClick={showTimeHint}
-              className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-300"
-              data-testid="hint-button"
-            >
-              Show Hint
-            </button>
-            
-            <button 
-              onClick={restartGame}
-              className="bg-gray-200 px-4 py-2 rounded-lg hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-400"
-              data-testid="restart-button"
-            >
-              Restart
-            </button>
+          <div className="challenge-progress mt-4 text-center">
+            Challenge {currentChallenge + 1} of {challenges.length}
           </div>
         </>
       ) : (
-        /* Game over screen */
-        <div className="game-over text-center p-6 bg-blue-50 rounded-xl shadow-md">
-          <h3 className="text-2xl font-bold mb-2">Game Complete!</h3>
-          <p className="text-lg mb-4">Your final score: <span className="font-bold text-green-600">{score}</span></p>
+        // Game over screen
+        <div className="game-over flex flex-col items-center justify-center p-8">
+          <h3 className="text-3xl mb-4">Game Over!</h3>
+          <p className="text-2xl mb-2">Final Score: <span className="font-bold">{score}</span></p>
+          <p className="mb-6">Great job! You've completed all the challenges.</p>
           
-          <div className="message text-xl font-bold mb-6 text-purple-600">
-            {getScoreMessage(score, difficulty)}
-          </div>
-          
-          <div className="flex justify-center gap-4">
-            <button
-              onClick={restartGame}
-              className="bg-green-500 text-white px-5 py-2 rounded-lg hover:bg-green-600 focus:outline-none focus:ring-2 focus:ring-green-300"
-            >
-              Play Again
-            </button>
-            
-            <button
-              onClick={() => {
-                setGameOver(false);
-                setDifficulty('easy');
-              }}
-              className="bg-blue-500 text-white px-5 py-2 rounded-lg hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-300"
-            >
-              Change Difficulty
-            </button>
-          </div>
+          <button 
+            onClick={restartGame}
+            className="bg-purple-500 text-white px-6 py-3 rounded-lg text-lg hover:bg-purple-600 focus:outline-none focus:ring-2 focus:ring-purple-300"
+            data-testid="restart-button"
+          >
+            Play Again
+          </button>
         </div>
       )}
-      
-      {/* Success animation overlay */}
-      <SuccessAnimation 
-        isVisible={showSuccess} 
-        message={streak > 1 ? `Great job! 🔥 ${streak} streak!` : 'Great job!'}
-        onComplete={() => setShowSuccess(false)}
-      />
     </div>
   );
 };

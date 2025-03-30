@@ -1,0 +1,16 @@
+{
+  "name": "Learn to Read a Clock",
+  "short_name": "Clock Learn",
+  "description": "A fun interactive app to help kids learn how to read analog clocks",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f5f7fa",
+  "theme_color": "#4a6fb5",
+  "icons": [
+    {
+      "src": "assets/icons/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}

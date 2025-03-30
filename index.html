@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Learn to Read a Clock</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div class="theme-toggle">
+        <button id="theme-btn">
+            <span class="light-icon">☀️</span>
+            <span class="dark-icon">🌙</span>
+        </button>
+    </div>
+
+    <div class="container">
+        <h1>Let's Learn to Read a Clock!</h1>
+        
+        <div class="clock-container">
+            <div class="clock">
+                <div class="clock-face">
+                    <div class="hand hour-hand"></div>
+                    <div class="hand minute-hand"></div>
+                    <div id="hour-marks"></div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="question">What time does the clock show?</div>
+        
+        <div class="options-container">
+            <!-- Options will be dynamically generated here -->
+        </div>
+        
+        <div class="score">Score: <span id="score">0</span></div>
+        
+        <button id="next-btn">Next Question</button>
+    </div>
+    
+    <div id="celebration" class="celebration">
+        <div class="celebration-content">
+            <h2>Great Job!</h2>
+            <div class="stars"></div>
+            <div id="confetti-container"></div>
+            <button id="continue-btn">Continue</button>
+        </div>
+    </div>
+
+    <canvas id="confetti-canvas"></canvas>
+    
+    <audio id="correct-sound" src="assets/correct.mp3" preload="auto"></audio>
+    <audio id="wrong-sound" src="assets/wrong.mp3" preload="auto"></audio>
+    <audio id="pop-sound" src="assets/pop.mp3" preload="auto"></audio>
+    
+    <script src="assets/dummySound.js"></script>
+    <script src="js/script.js"></script>
+</body>
+</html>

@@ -4,9 +4,7 @@ const minuteHand = document.querySelector('.minute-hand');
 const hourMarksContainer = document.getElementById('hour-marks');
 const optionsContainer = document.querySelector('.options-container');
 const scoreElement = document.getElementById('score');
-const nextButton = document.getElementById('next-btn');
-const celebration = document.getElementById('celebration');
-const continueButton = document.getElementById('continue-btn');
+const feedbackMessage = document.getElementById('feedback-message');
 const correctSound = document.getElementById('correct-sound');
 const wrongSound = document.getElementById('wrong-sound');
 const popSound = document.getElementById('pop-sound');
@@ -124,54 +122,53 @@ function checkAnswer(selectedOption) {
     
     const options = document.querySelectorAll('.option');
     const correctOption = formatTime(currentTime.hour, currentTime.minute);
+    let clickedOption = null;
     
+    // Find the clicked option
     options.forEach(option => {
         if (option.textContent === selectedOption) {
-            if (selectedOption === correctOption) {
-                option.classList.add('correct');
-                score++;
-                scoreElement.textContent = score;
-                
-                // Increase difficulty after 3 correct answers
-                if (score === 3 && difficulty === 1) {
-                    difficulty = 2;
-                    showLevelUpMessage();
-                }
-                
-                playCorrectSound();
-                createConfetti();
-                showCelebration();
-                
-                // Auto-proceed to next question after celebration
-                setTimeout(() => {
-                    celebration.classList.remove('show');
-                    nextQuestion();
-                }, 3000);
-            } else {
-                option.classList.add('wrong');
-                playWrongSound();
-                
-                // Highlight the correct answer
-                options.forEach(opt => {
-                    if (opt.textContent === correctOption) {
-                        opt.classList.add('correct');
-                    }
-                });
-                
-                // Allow them to see the correct answer before moving on
-                setTimeout(() => {
-                    nextQuestion();
-                }, 2000);
-            }
+            clickedOption = option;
         }
     });
     
-    // Disable all options after an answer is selected
-    options.forEach(option => {
-        option.style.pointerEvents = 'none';
-    });
+    if (!clickedOption) return;
     
-    optionsGenerated = false;
+    // Handle correct answer
+    if (selectedOption === correctOption) {
+        clickedOption.classList.add('correct');
+        score++;
+        scoreElement.textContent = score;
+        
+        // Increase difficulty after 3 correct answers
+        if (score === 3 && difficulty === 1) {
+            difficulty = 2;
+            showLevelUpMessage();
+        }
+        
+        playCorrectSound();
+        createConfetti();
+        showFeedbackMessage();
+        
+        // Disable all options after a correct answer
+        options.forEach(option => {
+            option.style.pointerEvents = 'none';
+        });
+        
+        optionsGenerated = false;
+        
+        // Auto-proceed to next question after a short delay
+        setTimeout(() => {
+            nextQuestion();
+        }, 2500);
+    } 
+    // Handle wrong answer
+    else {
+        clickedOption.classList.add('wrong');
+        playWrongSound();
+        
+        // Only disable the wrong option
+        clickedOption.style.pointerEvents = 'none';
+    }
 }
 
 // Show a message when leveling up to harder difficulty
@@ -289,22 +286,14 @@ function createConfetti() {
     playPopSound();
 }
 
-// Show celebration animation
-function showCelebration() {
+// Show feedback message animation
+function showFeedbackMessage() {
+    feedbackMessage.classList.add('show');
+    
+    // Automatically hide after a few seconds
     setTimeout(() => {
-        celebration.classList.add('show');
-        
-        // Add stars animation
-        const starsContainer = document.querySelector('.stars');
-        starsContainer.innerHTML = '';
-        
-        for (let i = 0; i < 3; i++) {
-            const star = document.createElement('div');
-            star.className = 'star';
-            star.textContent = '★';
-            starsContainer.appendChild(star);
-        }
-    }, 1000);
+        feedbackMessage.classList.remove('show');
+    }, 2000);
 }
 
 // Play correct answer sound
@@ -399,11 +388,6 @@ function init() {
     document.addEventListener('touchstart', unlockAudio, { once: true });
     
     // Event listeners
-    nextButton.addEventListener('click', nextQuestion);
-    continueButton.addEventListener('click', () => {
-        celebration.classList.remove('show');
-        nextQuestion();
-    });
     themeBtn.addEventListener('click', toggleTheme);
 }
 

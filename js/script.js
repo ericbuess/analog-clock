@@ -17,6 +17,7 @@ const confettiCanvas = document.getElementById('confetti-canvas');
 let currentTime = null;
 let score = 0;
 let optionsGenerated = false;
+let difficulty = 1; // 1 = 15-minute increments, 2 = 5-minute increments
 
 // Initialize the clock face with hour marks and numbers
 function initializeClockFace() {
@@ -58,11 +59,20 @@ function setClockTime(hour, minute) {
     currentTime = { hour, minute };
 }
 
-// Generate a random time (hours in 1-12, minutes in 0, 15, 30, 45)
+// Generate a random time based on current difficulty
 function generateRandomTime() {
     const hour = Math.floor(Math.random() * 12) + 1;
-    const minuteOptions = [0, 15, 30, 45];
-    const minute = minuteOptions[Math.floor(Math.random() * minuteOptions.length)];
+    let minute;
+    
+    if (difficulty === 1) {
+        // Easier: 15-minute increments
+        const minuteOptions = [0, 15, 30, 45];
+        minute = minuteOptions[Math.floor(Math.random() * minuteOptions.length)];
+    } else {
+        // Harder: 5-minute increments
+        const minuteOptions = [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55];
+        minute = minuteOptions[Math.floor(Math.random() * minuteOptions.length)];
+    }
     
     return { hour, minute };
 }
@@ -121,9 +131,22 @@ function checkAnswer(selectedOption) {
                 option.classList.add('correct');
                 score++;
                 scoreElement.textContent = score;
+                
+                // Increase difficulty after 3 correct answers
+                if (score === 3 && difficulty === 1) {
+                    difficulty = 2;
+                    showLevelUpMessage();
+                }
+                
                 playCorrectSound();
                 createConfetti();
                 showCelebration();
+                
+                // Auto-proceed to next question after celebration
+                setTimeout(() => {
+                    celebration.classList.remove('show');
+                    nextQuestion();
+                }, 3000);
             } else {
                 option.classList.add('wrong');
                 playWrongSound();
@@ -134,6 +157,11 @@ function checkAnswer(selectedOption) {
                         opt.classList.add('correct');
                     }
                 });
+                
+                // Allow them to see the correct answer before moving on
+                setTimeout(() => {
+                    nextQuestion();
+                }, 2000);
             }
         }
     });
@@ -144,6 +172,27 @@ function checkAnswer(selectedOption) {
     });
     
     optionsGenerated = false;
+}
+
+// Show a message when leveling up to harder difficulty
+function showLevelUpMessage() {
+    const levelUpMessage = document.createElement('div');
+    levelUpMessage.className = 'level-up-message';
+    levelUpMessage.innerHTML = 'Level Up! <br>Now try with 5-minute increments!';
+    document.body.appendChild(levelUpMessage);
+    
+    // Animate it in and out
+    setTimeout(() => {
+        levelUpMessage.classList.add('show');
+    }, 100);
+    
+    setTimeout(() => {
+        levelUpMessage.classList.remove('show');
+    }, 3000);
+    
+    setTimeout(() => {
+        document.body.removeChild(levelUpMessage);
+    }, 4000);
 }
 
 // Confetti animation
@@ -345,6 +394,10 @@ function init() {
     initializeClockFace();
     nextQuestion();
     
+    // Pre-load and unlock audio
+    document.addEventListener('click', unlockAudio, { once: true });
+    document.addEventListener('touchstart', unlockAudio, { once: true });
+    
     // Event listeners
     nextButton.addEventListener('click', nextQuestion);
     continueButton.addEventListener('click', () => {
@@ -352,6 +405,36 @@ function init() {
         nextQuestion();
     });
     themeBtn.addEventListener('click', toggleTheme);
+}
+
+// Unlock audio on mobile devices
+function unlockAudio() {
+    // Create and play a silent sound to unlock audio on mobile
+    const silentSound = new Audio('data:audio/mp3;base64,SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjU4Ljc2LjEwMAAAAAAAAAAAAAAA/+M4wAAAAAAAAAAAAEluZm8AAAAPAAAAAwAAAbMAYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBggICAgICAgICAgICAgICAgICAgICAgICAgICgn5+fn5+fn5+fn5+fn5+fn5+fn5+fn5+fn5+fv7+/v7+/v7+/v7+/v7+/v7+/v7+/v7+/v7+/3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d0AAAAAAH0wAABkAAABtAARBQAAAEluZm8AAAAPAAAAAwAAAbMAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBw3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d0AAAAAAA==');
+    silentSound.play().then(() => {
+        console.log('Audio unlocked');
+    }).catch(e => {
+        console.log('Could not unlock audio:', e);
+    });
+    
+    // Also try to preload the actual sounds
+    emptyAudio.play().catch(() => {});
+    try {
+        correctSound.play().then(() => {
+            correctSound.pause();
+            correctSound.currentTime = 0;
+        }).catch(() => {});
+        
+        wrongSound.play().then(() => {
+            wrongSound.pause();
+            wrongSound.currentTime = 0;
+        }).catch(() => {});
+        
+        popSound.play().then(() => {
+            popSound.pause();
+            popSound.currentTime = 0;
+        }).catch(() => {});
+    } catch(e) {}
 }
 
 // Start the game when the page loads
